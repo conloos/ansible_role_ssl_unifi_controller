@@ -1,0 +1,69 @@
+---
+# Source: https://www.namecheap.com/support/knowledgebase/article.aspx/10134/33/installing-an-ssl-certificate-on-ubiquiti-unifi/
+# Source: https://www.jeroentielen.nl/ubiquiti-unifi-controller-ssl-certificate-creation-process/
+
+- name: Populate service facts
+  service_facts:
+
+- block:
+  - name: Stop Unifi service
+    ansible.builtin.systemd:
+      state: stopped
+      name: unifi.service
+      daemon_reload: yes
+    when: "'unifi.service' in services"
+
+  - name: generate unifi Certificate
+    # We need a RSA certificate an no ECDSA which ist default of small step
+    # More hint: https://smallstep.com/docs/tutorials/rsa-chain
+    ansible.builtin.shell:
+    args:
+      cmd: '/usr/local/bin/unifi-regenerate-certificate.sh'
+      chdir: '/usr/local/bin/'
+
+  # - name: Create unifi keystore for the given certificate/private key pair
+  #   community.general.java_keystore:
+  #     name: unifi
+  #     certificate_path: "{{ cert_for_keystore_path }}"
+  #     private_key_path: "{{ key_for_keystore_path }}"
+  #     # changeing the default pw is broken, see:
+  #     # https://community.ui.com/questions/Unifi-Controller-change-Password-of-the-keystore/e8b6e029-f5a9-4ebd-a009-93046f83a21c
+  #     # use: aircontrolenterprise
+  #     password: "{{ vault_unifi_controller.keystore_password }}"
+  #     keystore_type: pkcs12
+  #     owner: unifi
+  #     group: unifi
+  #     dest: "{{ path_to_unifi }}/keystore"
+
+  - name: generate keystore
+    # We need a RSA certificate an no ECDSA which ist default of small step
+    # More hint: https://smallstep.com/docs/tutorials/rsa-chain
+    ansible.builtin.shell:
+    args:
+      cmd: '/usr/local/bin/unifi-rebuild-keystore.sh'
+      chdir: '/usr/local/bin/'
+
+  - name: check if app.keystore.pass is in system.properties
+    lineinfile:
+      state: absent
+      path: "{{ path_to_unifi }}/system.properties"
+      regexp: "^app.keystore.pass="
+    check_mode: true
+    changed_when: false # This just makes things look prettier in the logs
+    register: check
+
+  - name: set keystore password if not exist
+    lineinfile:
+      state: present
+      path: "{{ path_to_unifi }}/system.properties"
+      line: "app.keystore.pass={{ vault_unifi_controller.keystore_password }}"
+    when: check.found == 0
+
+  - name: Start Unifi service
+    ansible.builtin.systemd:
+        state: started
+        name: unifi.service
+        daemon_reload: yes
+    when: "'unifi.service' in services"
+  when: hostvars['localhost']['cert_for_keystore_path'] is defined
+...

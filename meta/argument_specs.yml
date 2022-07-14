@@ -1,0 +1,26 @@
+argument_specs:
+  main:
+    path_to_ssl_dir:
+      type: str
+      required: no
+      description: path to the cert directory
+    cert_for_keystore_path:
+      type: str
+      required: yes
+      description: path to the cert to import to keystore
+    key_for_keystore_path:
+      type: str
+      required: yes
+      description: path to the key to import to keystore
+    path_to_step_cli:
+      type: str
+      required: no
+      description: Path to the executable
+    path_to_unifi:
+      type: str
+      required: no
+      description: Path to the directory
+    BACKUP_KEYSTORE:
+      type: bool
+      required: true
+      description: Create a Backup before renew

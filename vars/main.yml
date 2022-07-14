@@ -1,0 +1,6 @@
+---
+path_to_step_cli: /usr/bin/step-cli
+path_to_keystore: /usr/bin/keytool
+path_to_unifi: /var/lib/unifi
+path_to_ssl_dir: /etc/ssl
+path_to_ssl: /usr/bin/openssl

@@ -1,0 +1,76 @@
+---
+- name: Populate service facts
+  service_facts:
+
+# Disable systemd file watcher for unifi certificate if filewatcher was enabled in a previous run. 
+- name: disable service unifi-rebuild-keystore.path
+  ansible.builtin.systemd:
+    name: unifi-rebuild-keystore.path
+    state: stopped
+    enabled: no
+    masked: no
+    daemon_reload: yes
+  when: ("'unifi-rebuild-keystore.path' in services" | bool) and (hostvars['localhost']['cert_for_keystore_path'] is defined)
+
+- block:
+  - name: copy unifi-rebuild-keystore.path
+    ansible.builtin.template:
+      src: unifi-rebuild-keystore.path.j2
+      dest: '/etc/systemd/system/unifi-rebuild-keystore.path'
+      owner: root
+      group: root
+      mode: '0644'
+
+  # service to recreate unifi keystore
+  - name: copy unifi-rebuild-keystore.service to systemd configs
+    ansible.builtin.copy:
+      src: unifi-rebuild-keystore.service
+      dest: /etc/systemd/system/unifi-rebuild-keystore.service
+      owner: root
+      group: root
+      mode: '0644'
+
+  # Bash script to rebuild unifi keystore
+  - name: copy unifi-rebuild-keystore.sh
+    ansible.builtin.template:
+      src: unifi-rebuild-keystore.sh.j2
+      dest: '/usr/local/bin/unifi-rebuild-keystore.sh'
+      owner: root
+      group: root
+      mode: '0770'
+
+  # service to create or renew certificates
+  - name: copy unifi-regenerate-certificate.service to systemd configs
+    ansible.builtin.copy:
+      src: unifi-regenerate-certificate.service
+      dest: /etc/systemd/system/unifi-regenerate-certificate.service
+      owner: root
+      group: root
+      mode: '0644'
+
+  # Bash script to regenerate certificates new or renew
+  - name: copy unifi-regenerate-certificate.sh
+    ansible.builtin.template:
+      src: unifi-regenerate-certificate.sh.j2
+      dest: '/usr/local/bin/unifi-regenerate-certificate.sh'
+      owner: root
+      group: root
+      mode: '0770'
+
+  - name: Enable service awx.service and ensure it is not masked
+    ansible.builtin.systemd:
+      name: unifi-regenerate-certificate
+      state: started
+      enabled: yes
+      masked: no
+      daemon_reload: yes
+
+  - name: Enable service unifi-rebuild-keystore.path and ensure it is not masked
+    ansible.builtin.systemd:
+      name: unifi-rebuild-keystore.path
+      state: started
+      enabled: yes
+      masked: no
+      daemon_reload: yes
+  when: hostvars['localhost']['cert_for_keystore_path'] is defined
+...

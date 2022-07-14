@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+# Purpose: recreate certificate new or renew
+# Author: Frank Dornheim <dornheim@posteo.de> under GPLv2+
+# Category: Core
+# Override: False
+
+STEP_CLI_PATH={{ path_to_step_cli }}
+CERT_FILENAME_PATH={{ cert_for_keystore_path }}
+CERT_KEY_PATH={{ key_for_keystore_path }}
+FQDN={{ cloudinit_fqdn }}
+
+#
+# Test Block
+#
+
+# test for step-cli
+if [[ ! -f "$STEP_CLI_PATH" ]] ; then
+  echo "Can't find step-cli at: $STEP_CLI_PATH"
+  exit 1
+fi
+
+# test for cert file
+if [[ ! -f "$CERT_FILENAME_PATH" ]] ; then
+  echo "The certificate is not found. This is an Error."
+  exit 1
+fi
+
+# test for key file
+if [[ ! -f "$CERT_KEY_PATH" ]] ; then
+  echo "The certificate-key is not found. This is an Error."
+  exit 1
+fi
+
+#
+# Generating and renew Certificates
+#
+
+if [[ -f /var/run/unifi-cert.pid ]] ; then
+  /bin/kill -9 $(<"/var/run/unifi-cert.pid")
+  /bin/rm /var/run/unifi-cert.pid
+fi
+
+$STEP_CLI_PATH ca certificate $FQDN $CERT_FILENAME_PATH $CERT_KEY_PATH -kty=RSA --size=4096 --force
+/bin/nohup $STEP_CLI_PATH ca renew $CERT_FILENAME_PATH $CERT_KEY_PATH --daemon --force &
+returnValue=$?
+
+if [[ $returnValue -eq 0 ]] ; then
+  echo $! > /var/run/unifi-cert.pid
+else
+  echo "Step renew exits with error."
+fi
